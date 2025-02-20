@@ -1,12 +1,14 @@
 #!/bin/bash
 
-#SBATCH --job-name=aDNA_analysis
-#SBATCH --output=/data/users_area/pho10kg/output/arrayjobs_%A_%a.out
-#SBATCH --error=/data/users_area/pho10kg/errors/arrayjobs_%A_%a.err
-#SBATCH --array=0-5
-#SBATCH --time=24:00:00
-#SBATCH --cpus-per-task=16
+#SBATCH --verbose
+#SBATCH -J aDNA_read_processing
+#SBATCH -p all
+#SBATCH -o /data/users_area/pho10kg/output/arrayjobs_%A_%a.out
+#SBATCH -e /data/users_area/pho10kg/errors/arrayjobs_%A_%a.err
+#SBATCH -t 24:00:00
+#SBATCH -c 16
 #SBATCH --mem=32G
+#SBATCH --array=1-ARRAY_SIZE
 
 
 # Variables 
