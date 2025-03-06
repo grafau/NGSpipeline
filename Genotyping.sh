@@ -26,7 +26,7 @@ HOM=/path/to/working/directory
 
 #Code
 #Sample list for genotyping
-ls ${HOM}/gvcf/*.mapped.RG.sort.rmdup.g.vcf.gz > ${HOM}/gvcf/gvcf.list
+ls ${HOM}/gvcf/*.RG.mapped.sort.rmdup.g.vcf.gz > ${HOM}/gvcf/gvcf.list
 
 #Combine GVCFs
 gatk --java-options "-Xmx32G" CombineGVCFs -R ${REF}/IRGSP-1.0_genome.fasta --variant ${HOM}/gvcf/gvcf.list -O ${HOM}/gvcf/combined.g.vcf.gz
