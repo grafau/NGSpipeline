@@ -41,39 +41,61 @@ check_command() {
     fi
 }
 
+# Function to process MAPPING for a single run
+process_single_run() {
+    local sample=$1
+    local run=$2
+    local rg="@RG\\tID:${sample}_${run}\\tSM:${sample}"
 
-
+    bwa aln -t 16 -l 1024 -f ${HOM}/mapping/${sample}_${run}.collapsed.sai ${REF} ${HOM}/trimmed_merged/${sample}.collapsed.gz
+    check_command "BWA aln ${sample}_${run}"
+    
+    bwa samse -r $rg -f ${HOM}/mapping/${sample}_${run}.RG.sam ${REF} ${HOM}/mapping/${sample}_${run}.collapsed.sai ${HOM}/trimmed_merged/${sample}.collapsed.gz
+    check_command "BWA samse ${sample}_${run}"
+    
+    samtools flagstat ${HOM}/mapping/${sample}_${run}.RG.sam > ${HOM}/mapping/${sample}_${run}.flagstats.log
+    check_command "Samtools flagstat ${sample}_${run}"
+    
+    samtools view -@ 16 -F 4 -Sbh -o ${HOM}/mapping/${sample}_${run}.RG.mapped.bam ${HOM}/mapping/${sample}_${run}.RG.sam
+    check_command "Samtools view ${sample}_${run}"
+    
+    samtools sort -@ 16 -o ${HOM}/mapping/${sample}_${run}.RG.mapped.sorted.bam ${HOM}/mapping/${sample}_${run}.RG.mapped.bam
+    check_command "Samtools sort ${sample}_${run}"
+}
 
 
 # Run pipeline
 
- ## ADAPTERREMOVAL
-	AdapterRemoval --file1 ${HOM}/raw_data/${SAMPLE}_1.fastq.gz --file2 ${HOM}/raw_data/${SAMPLE}_2.fastq.gz --basename ${HOM}/trimmed_merged/${SAMPLE} --collapse --gzip --threads 16
+## ADAPTERREMOVAL
+AdapterRemoval --file1 ${HOM}/raw_data/${SAMPLE}_1.fastq.gz --file2 ${HOM}/raw_data/${SAMPLE}_2.fastq.gz --basename ${HOM}/trimmed_merged/${SAMPLE} --collapse --gzip --threads 16
+check_command "AdapterRemoval" 
 
- ## FASTQC
-	fastqc -t 16 -o ${HOM}/quality_control/ ${HOM}/trimmed_merged/${SAMPLE}.collapsed.gz ${HOM}/trimmed_merged/${SAMPLE}.pair1.truncated.gz ${HOM}/trimmed_merged/${SAMPLE}.pair2.truncated.gz	
+## FASTQC
+fastqc -t 16 -o ${HOM}/quality_control/ ${HOM}/trimmed_merged/${SAMPLE}.collapsed.gz ${HOM}/trimmed_merged/${SAMPLE}.pair1.truncated.gz ${HOM}/trimmed_merged/${SAMPLE}.pair2.truncated.gz
+check_command "FastQC"
 
- ## MAPPING
-	bwa aln -t 16 -l 1024 -f ${HOM}/mapping/${SAMPLE}.collapsed.sai ${REF} ${HOM}/trimmed_merged/${SAMPLE}.collapsed.gz
-									
-	bwa samse -r @RG\\tID:${SAMPLE}\\tSM:${SAMPLE} -f ${HOM}/mapping/${SAMPLE}.sam ${REF} ${HOM}/mapping/${SAMPLE}.collapsed.sai ${HOM}/trimmed_merged/${SAMPLE}.collapsed.gz
+## MAPPING
+if [ -f "${HOM}/raw_data/${SAMPLE}_run2_1.fastq.gz" ]; then
+    # Process both batches
+    	process_single_run $SAMPLE "run1"
+    	process_single_run $SAMPLE "run2"
 
-	samtools flagstat ${HOM}/mapping/${SAMPLE}.sam > ${HOM}/mapping/${SAMPLE}.flagstats.log
+    # Merge BAM files
+    	UPDATED_SAMPLE="${SAMPLE}_merged"
+    	samtools merge ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.bam ${HOM}/mapping/${SAMPLE}_run1.RG.mapped.sorted.bam ${HOM}/mapping/${SAMPLE}_run2.RG.mapped.sorted.bam
+    	check_command "Samtools merge"
+else
+    # Process single run
+    	UPDATED_SAMPLE="${SAMPLE}"
+    	process_single_batch $SAMPLE "run1"
+    	mv ${HOM}/mapping/${SAMPLE}_run1.RG.mapped.sorted.bam ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.bam
+fi
 
-	samtools view -@ 16 -F 4 -Sbh -o ${HOM}/mapping/${SAMPLE}.mapped.bam ${HOM}/mapping/${SAMPLE}.sam
+## DEDUP
+dedup -i ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.bam -m -o ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.bam
+check_command "Dedup"											
 
-	samtools sort -@ 16 -o ${HOM}/mapping/${SAMPLE}.mapped.sorted.bam ${HOM}/mapping/${SAMPLE}.mapped.bam
-
- ## DEDUP
-	dedup -i ${HOM}/mapping/${SAMPLE}.mapped.sorted.bam -m -o ${HOM}/mapping/											
-
- ## AMBER
-
-	samtools sort -@ 16 -o ${HOM}/mapping/${SAMPLE}.rmdup.sorted.bam ${HOM}/mapping/${SAMPLE}.mapped.sorted_rmdup.bam
-
-	echo -e ${SAMPLE}'\t'${HOM}/mapping/${SAMPLE}.rmdup.sorted.bam > ${HOM}/aDNA_characteristics/paths/${SAMPLE}.tsv
-	
-	${BIN}/AMBER --bamfiles ${HOM}/aDNA_characteristics/paths/${SAMPLE}.tsv --output ${HOM}/aDNA_characteristics/${SAMPLE} --errorbars --counts
-
-
-
+## AMBER
+samtools sort -@ 16 -o ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.rmdup.sorted.bam ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.bam
+echo -e ${UPDATED_SAMPLE}'\t'${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.rmdup.sorted.bam > ${HOM}/aDNA_characteristics/paths/${UPDATED_SAMPLE}.tsv
+${BIN}/AMBER --bamfiles ${HOM}/aDNA_characteristics/paths/${UPDATED_SAMPLE}.tsv --output ${HOM}/aDNA_characteristics/${UPDATED_SAMPLE} --errorbars --counts
