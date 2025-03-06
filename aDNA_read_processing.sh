@@ -3,8 +3,8 @@
 #SBATCH --verbose
 #SBATCH -J aDNA_read_processing
 #SBATCH -p all
-#SBATCH -o /data/users_area/pho10kg/output/arrayjobs_%A_%a.out
-#SBATCH -e /data/users_area/pho10kg/errors/arrayjobs_%A_%a.err
+#SBATCH -o /path/to/log/a_read_processing_%A_%a.out
+#SBATCH -e /path/to/log/a_read_processing_%A_%a.err
 #SBATCH -t 24:00:00
 #SBATCH -c 16
 #SBATCH --mem=32G
@@ -32,6 +32,18 @@ conda activate /home/pho10kg/miniconda/envs/aDNA_Nov_env/
  
 # Navigate to the data directory
   cd "${HOM}"
+
+# Function to check command success
+check_command() {
+    if [ $? -ne 0 ]; then
+        echo "Error: $1 failed"
+        exit 1
+    fi
+}
+
+
+
+
 
 # Run pipeline
 
