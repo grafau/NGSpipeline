@@ -65,7 +65,6 @@ process_single_run() {
 
 
 # Run pipeline
-
 ## ADAPTERREMOVAL
 AdapterRemoval --file1 ${HOM}/raw_data/${SAMPLE}_1.fastq.gz --file2 ${HOM}/raw_data/${SAMPLE}_2.fastq.gz --basename ${HOM}/trimmed_merged/${SAMPLE} --collapse --gzip --threads 16
 check_command "AdapterRemoval" 
@@ -96,6 +95,15 @@ dedup -i ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.bam -m -o ${HOM}/mapp
 check_command "Dedup"											
 
 ## AMBER
-samtools sort -@ 16 -o ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.rmdup.sorted.bam ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.bam
-echo -e ${UPDATED_SAMPLE}'\t'${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.rmdup.sorted.bam > ${HOM}/aDNA_characteristics/paths/${UPDATED_SAMPLE}.tsv
+samtools sort -@ 16 -o ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.bam
+echo -e ${UPDATED_SAMPLE}'\t'${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam > ${HOM}/aDNA_characteristics/paths/${UPDATED_SAMPLE}.tsv
 ${BIN}/AMBER --bamfiles ${HOM}/aDNA_characteristics/paths/${UPDATED_SAMPLE}.tsv --output ${HOM}/aDNA_characteristics/${UPDATED_SAMPLE} --errorbars --counts
+
+# Variant calling
+## Index BAM files - samtools
+samtools index ${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam
+check_command "Samtools index"
+
+## Haplotype calling - GATK
+gatk --java-options -Xmx32G HaplotypeCaller -R ${REF}/IRGSP-1.0_genome.fasta -I ${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam -O ${HOM}/gvcf/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.g.vcf.gz -ERC GVCF
+check_command "GATK"
