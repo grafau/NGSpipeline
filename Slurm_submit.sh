@@ -7,6 +7,7 @@ mkdir -p /path/to/HOM/mapping
 mkdir -p /path/to/HOM/mapped
 mkdir -p /path/to/HOM/unmapped
 mkdir -p /path/to/HOM/QC
+mkdir -p /path/to/HOM/aDNA_authentication
 mkdir -p /path/to/HOM/gvcf
 mkdir -p /path/to/HOM/vcf
 
