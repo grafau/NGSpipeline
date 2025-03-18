@@ -10,6 +10,13 @@
 #SBATCH --mem=32G
 #SBATCH --array=1-ARRAY_SIZE
 
+# Activate conda environment
+source /home/pho10kg/miniconda/etc/profile.d/conda.sh
+conda activate /home/pho10kg/miniconda/envs/aDNA_Nov_env/
+
+# Get ID for current array job
+SAMPLE=${SAMPLES[$SLURM_ARRAY_TASK_ID]}
+echo "Running analysis on ${SAMPLE}"
 
 # Variables 
 HOM="/data/users_area/pho10kg/seq_data"
@@ -17,21 +24,8 @@ REF="${HOM}/ref/Nipponbare_reference_genome.fasta"
 SAMPLES=($(ls ${HOM}/raw_data/*_1.fastq.gz | sed 's|.*/||; s/_1.fastq.gz//'))
 BIN="/home/pho10kg/bin"
 
-#Number of samples
-NUM_SAMPLES=${#SAMPLES[@]}
-
-# Get ID for current array job
-
-   SAMPLE=${SAMPLES[$SLURM_ARRAY_TASK_ID]}
-
-echo "Running analysis on ${SAMPLE}"
-
-# Activate conda environment
-source /home/pho10kg/miniconda/etc/profile.d/conda.sh
-conda activate /home/pho10kg/miniconda/envs/aDNA_Nov_env/
- 
 # Navigate to the data directory
-  cd "${HOM}"
+cd "${HOM}"
 
 # Function to check command success
 check_command() {
