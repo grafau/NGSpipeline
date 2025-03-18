@@ -9,21 +9,21 @@
 #SBATCH -e /path/to/log/c_read_processing_%A_%a.err
 #SBATCH --array=1-ARRAY_SIZE
 
-#module load & libraries
+# Module load & libraries
 module purge
 eval "$(conda shell.bash hook)"
 conda activate ngs
 
-#Submit command: sbatch contemporary_read_processing.sh (or use Slurm_submit.sh for automated ARRAY_SIZE calculation)
+# Submit command: sbatch contemporary_read_processing.sh (or use Slurm_submit.sh for automated ARRAY_SIZE calculation)
 
-#Print the task ID
+# Print the task ID
 cd "$SLURM_SUBMIT_DIR"
 echo "My SLURM_ARRAY_TASK_ID: " $SLURM_ARRAY_JOB_ID $SLURM_ARRAY_TASK_ID ${SAMPLE}
 
-#Variables
-DAT=/data/users_area/yky10kg/GREENrice/Cons_Gen/datasets/farmers/fastq
-REF=/data/users_area/yky10kg/GREENrice/Cons_Gen/datasets/ref
-HOM=/data/users_area/yky10kg/GREENrice/Cons_Gen/datasets/farmers/trial
+# Variables
+DAT=/path/to/fastq
+REF=/path/to/ref
+HOM=/path/to/main/working/directory
 SAMPLE=$(ls ${DAT}/*_1.fastq.gz | rev | cut -d "/" -f 1 | rev | cut -f 1 -d "_" | sed -n "${SLURM_ARRAY_TASK_ID}p")
 
 # Function to check command success
