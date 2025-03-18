@@ -18,11 +18,12 @@ conda activate /home/pho10kg/miniconda/envs/aDNA_Nov_env/
 SAMPLE=${SAMPLES[$SLURM_ARRAY_TASK_ID]}
 echo "Running analysis on ${SAMPLE}"
 
-# Variables 
-HOM="/data/users_area/pho10kg/seq_data"
-REF="${HOM}/ref/Nipponbare_reference_genome.fasta"
-SAMPLES=($(ls ${HOM}/raw_data/*_1.fastq.gz | sed 's|.*/||; s/_1.fastq.gz//'))
-BIN="/home/pho10kg/bin"
+# Variables
+DAT=/path/to/fastq
+REF=/path/to/ref/reference.fasta
+HOM=/path/to/main/working/directory
+BIN=/path/to/bin
+SAMPLE=$(ls ${DAT}/*_1.fastq.gz | rev | cut -d "/" -f 1 | rev | cut -f 1 -d "_" | sed -n "${SLURM_ARRAY_TASK_ID}p")
 
 # Navigate to the data directory
 cd "${HOM}"
@@ -41,10 +42,10 @@ process_single_run() {
     local run=$2
     local rg="@RG\\tID:${sample}_${run}\\tSM:${sample}"
 
-    bwa aln -t 16 -l 1024 -f ${HOM}/mapping/${sample}_${run}.collapsed.sai ${REF} ${HOM}/trimmed_merged/${sample}.collapsed.gz
+    bwa aln -t 16 -l 1024 -f ${HOM}/mapping/${sample}_${run}.collapsed.sai ${REF} ${HOM}/trim/${sample}.collapsed.gz
     check_command "BWA aln ${sample}_${run}"
     
-    bwa samse -r $rg -f ${HOM}/mapping/${sample}_${run}.RG.sam ${REF} ${HOM}/mapping/${sample}_${run}.collapsed.sai ${HOM}/trimmed_merged/${sample}.collapsed.gz
+    bwa samse -r $rg -f ${HOM}/mapping/${sample}_${run}.RG.sam ${REF} ${HOM}/mapping/${sample}_${run}.collapsed.sai ${HOM}/trim/${sample}.collapsed.gz
     check_command "BWA samse ${sample}_${run}"
     
     samtools flagstat ${HOM}/mapping/${sample}_${run}.RG.sam > ${HOM}/mapping/${sample}_${run}.flagstats.log
@@ -59,16 +60,16 @@ process_single_run() {
 
 
 # Run pipeline
-## ADAPTERREMOVAL
-AdapterRemoval --file1 ${HOM}/raw_data/${SAMPLE}_1.fastq.gz --file2 ${HOM}/raw_data/${SAMPLE}_2.fastq.gz --basename ${HOM}/trimmed_merged/${SAMPLE} --collapse --gzip --threads 16
+## Adapter trimming - ADAPTERREMOVAL
+AdapterRemoval --file1 ${DAT}/${SAMPLE}_1.fastq.gz --file2 ${DAT}/${SAMPLE}_2.fastq.gz --basename ${HOM}/trim/${SAMPLE} --collapse --gzip --threads 16
 check_command "AdapterRemoval" 
 
-## FASTQC
-fastqc -t 16 -o ${HOM}/quality_control/ ${HOM}/trimmed_merged/${SAMPLE}.collapsed.gz ${HOM}/trimmed_merged/${SAMPLE}.pair1.truncated.gz ${HOM}/trimmed_merged/${SAMPLE}.pair2.truncated.gz
+## Quality check - FASTQC
+fastqc -t 16 ${HOM}/trim/${SAMPLE}.collapsed.gz ${HOM}/trim/${SAMPLE}.pair1.truncated.gz ${HOM}/trim/${SAMPLE}.pair2.truncated.gz -o ${HOM}/fastqc
 check_command "FastQC"
 
 ## MAPPING
-if [ -f "${HOM}/raw_data/${SAMPLE}_run2_1.fastq.gz" ]; then
+if [ -f "${DAT}/${SAMPLE}_run2_1.fastq.gz" ]; then
     # Process both batches
     	process_single_run $SAMPLE "run1"
     	process_single_run $SAMPLE "run2"
@@ -84,14 +85,14 @@ else
     	mv ${HOM}/mapping/${SAMPLE}_run1.RG.mapped.sorted.bam ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.bam
 fi
 
-## DEDUP
-dedup -i ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.bam -m -o ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.bam
+## Deduplication of mapped reads - DEDUP
+dedup -i ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.bam -m -o ${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.bam
 check_command "Dedup"											
 
-## AMBER
-samtools sort -@ 16 -o ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.bam
-echo -e ${UPDATED_SAMPLE}'\t'${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam > ${HOM}/aDNA_characteristics/paths/${UPDATED_SAMPLE}.tsv
-${BIN}/AMBER --bamfiles ${HOM}/aDNA_characteristics/paths/${UPDATED_SAMPLE}.tsv --output ${HOM}/aDNA_characteristics/${UPDATED_SAMPLE} --errorbars --counts
+## aDNA Authentication - AMBER
+samtools sort -@ 16 -o ${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.bam
+echo -e ${UPDATED_SAMPLE}'\t'${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam > ${HOM}/aDNA_authentication/${UPDATED_SAMPLE}.tsv
+${BIN}/AMBER --bamfiles ${HOM}/aDNA_authentication/${UPDATED_SAMPLE}.tsv --output ${HOM}/aDNA_authentication/${UPDATED_SAMPLE} --errorbars --counts
 
 # Variant calling
 ## Index BAM files - samtools
