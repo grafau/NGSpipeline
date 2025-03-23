@@ -24,6 +24,7 @@ echo "My SLURM_ARRAY_TASK_ID: " $SLURM_ARRAY_JOB_ID $SLURM_ARRAY_TASK_ID ${SAMPL
 DAT=/path/to/fastq
 REF=/path/to/ref
 HOM=/path/to/main/working/directory
+BIN=/path/to/conda/env/bin
 SAMPLE=$(ls ${DAT}/*_1.fastq.gz | rev | cut -d "/" -f 1 | rev | cut -f 1 -d "_" | sed -n "${SLURM_ARRAY_TASK_ID}p")
 
 # Function to check command success
