@@ -69,7 +69,7 @@ fastqc -t 16 ${HOM}/trim/${SAMPLE}.collapsed.gz ${HOM}/trim/${SAMPLE}.pair1.trun
 check_command "FastQC"
 
 ## MAPPING
-if [ -f "${DAT}/${SAMPLE}_run2_1.fastq.gz" ]; then
+if [ -f "${DAT}/${SAMPLE}-run2_1.fastq.gz" ]; then
     # Process both batches
     	process_single_run $SAMPLE "run1"
     	process_single_run $SAMPLE "run2"
