@@ -11,8 +11,9 @@
 #SBATCH --array=1-ARRAY_SIZE
 
 # Activate conda environment
-source /home/pho10kg/miniconda/etc/profile.d/conda.sh
-conda activate /home/pho10kg/miniconda/envs/aDNA_Nov_env/
+module purge
+eval "$(conda shell.bash hook)"
+conda activate conda_env
 
 # Variables
 DAT=/path/to/fastq
@@ -42,21 +43,21 @@ check_command() {
 }
 
 # Function to process until alignment and sorting
-process_single_run() {
+process_run() {
     local sample=$1
     local run=$2
     local rg="@RG\\tID:${sample}_${run}\\tSM:${sample}"
 
     # Adapter trimming
-    AdapterRemoval --file1 ${DAT}/${sample}${run}_1.fastq.gz --file2 ${DAT}/${sample}${run}_2.fastq.gz --basename ${HOM}/trim/${sample}${run} --collapse --gzip
+    AdapterRemoval --threads 16 --file1 ${DAT}/${sample}${run}_1.fastq.gz --file2 ${DAT}/${sample}${run}_2.fastq.gz --basename ${HOM}/trim/${sample}${run} --collapse --gzip
     check_command "AdapterRemoval"
 
     # Quality check - FASTQC
-    fastqc ${HOM}/trim/${sample}${run}.collapsed.gz ${HOM}/trim/${sample}${run}.pair1.truncated.gz ${HOM}/trim/${sample}${run}.pair2.truncated.gz -o ${HOM}/fastqc
+    fastqc -t 16 ${HOM}/trim/${sample}${run}.collapsed.gz ${HOM}/trim/${sample}${run}.pair1.truncated.gz ${HOM}/trim/${sample}${run}.pair2.truncated.gz -o ${HOM}/fastqc
     check_command "FASTQC"
 
     # Alignment and processing
-    bwa aln -l 1024 -f ${HOM}/mapping/${sample}${run}.collapsed.sai ${REF} ${HOM}/trim/${sample}${run}.collapsed.gz
+    bwa aln -t 16 -l 1024 -f ${HOM}/mapping/${sample}${run}.collapsed.sai ${REF} ${HOM}/trim/${sample}${run}.collapsed.gz
     check_command "BWA aln ${sample}${run}"
     
     bwa samse -r $rg -f ${HOM}/mapping/${sample}${run}.RG.sam ${REF} ${HOM}/mapping/${sample}${run}.collapsed.sai ${HOM}/trim/${sample}${run}.collapsed.gz
@@ -65,15 +66,18 @@ process_single_run() {
     samtools flagstat ${HOM}/mapping/${sample}${run}.RG.sam > ${HOM}/mapping/${sample}${run}.flagstats.log
     check_command "Samtools flagstat ${sample}${run}"
     
-    samtools view -F 4 -Sbh -o ${HOM}/mapping/${sample}${run}.RG.mapped.bam ${HOM}/mapping/${sample}${run}.RG.sam
+    samtools view -@ 16 -F 4 -Sbh -o ${HOM}/mapping/${sample}${run}.RG.mapped.bam ${HOM}/mapping/${sample}${run}.RG.sam
     check_command "Samtools view ${sample}${run}"
 
-    samtools sort -o ${HOM}/mapping/${sample}${run}.RG.mapped.sorted.bam ${HOM}/mapping/${sample}${run}.RG.mapped.bam
+    samtools sort -@ 16 -o ${HOM}/mapping/${sample}${run}.RG.mapped.sorted.bam ${HOM}/mapping/${sample}${run}.RG.mapped.bam
     check_command "Samtools sort ${sample}${run}"
 
     # Create a completion flag
     echo "Processing for ${sample}${run} completed."
 }
+
+# Process the current run
+process_run $SAMPLE "$RUN"
 
 # Merge BAM files for multiple run samples
 merge_bam_files() {
@@ -101,7 +105,7 @@ merge_bam_files() {
         # Use merged name for downstream processing
         UPDATED_SAMPLE="${merged_sample}"
     else
-        echo "Only a single BAM file found. Skipping merging for SAMPLE=${sample}."
+        echo "Not all multiple BAM files found. Skipping merging for SAMPLE=${sample}."
         UPDATED_SAMPLE="${sample}"
 
         # Rename the single BAM file to follow the merged format for consistency
@@ -111,33 +115,47 @@ merge_bam_files() {
     echo "BAM files merged (if applicable) for SAMPLE=${sample}. UPDATED_SAMPLE=${UPDATED_SAMPLE}"
 }
 
-# Process the current run
-process_single_run $SAMPLE "$RUN"
+# Detect runs for a sample
+detect_runs() {
+    local sample=$1
+    local runs=()
 
-# Perform merging step
-merge_bam_files "${SAMPLE}"
+    # List all files for the given sample and extract run tags
+    for file in ${DAT}/${sample}*; do
+        run=$(basename "$file" | grep -o "\-run[234]")
+        if [ -n "$run" ]; then
+            runs+=("$run")
+        fi
+    done
+
+    # Remove duplicates and return unique run tags
+    echo "${runs[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '
+}
+
+# Perform merging step if necessary
+if [[ "$RUN" =~ ^-run[234]$ ]]; then
+    # Run tag is -run[234], perform merging
+    merge_bam_files "${SAMPLE}"
+else
+    # No run tag or other run tag, proceed with deduplication and other steps
+    UPDATED_SAMPLE=$SAMPLE
+fi
 
 # Deduplication of mapped reads - DEDUP
-dedup -i ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.bam -m -o ${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.bam
+dedup -i ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.bam -m -o ${HOM}/mapped/
 check_command "Dedup"											
 
 # Sorting and Indexing BAM files
-samtools sort -@ 16 -o ${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam ${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.bam
+samtools sort -@ 16 -o ${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam ${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sorted_rmdup.bam
 check_command "Sorting Samtools sort"
 samtools index ${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam
 check_command "Indexing Samtools index"
 
 # aDNA Authentication - AMBER
-samtools sort -o ${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.bam
 echo -e ${UPDATED_SAMPLE}'\t'${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam > ${HOM}/aDNA_authentication/${UPDATED_SAMPLE}.tsv
 ${BIN}/AMBER --bamfiles ${HOM}/aDNA_authentication/${UPDATED_SAMPLE}.tsv --output ${HOM}/aDNA_authentication/${UPDATED_SAMPLE} --errorbars --counts
 check_command "AMBER"
 
-# Variant calling
-# Index BAM files - samtools
-samtools index ${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam
-check_command "Samtools index"
-
 # Haplotype calling - GATK
-gatk --java-options -Xmx32G HaplotypeCaller -R ${REF}/IRGSP-1.0_genome.fasta -I ${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam -O ${HOM}/gvcf/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.g.vcf.gz -ERC GVCF
+gatk --java-options -Xmx32G HaplotypeCaller -R ${REF} -I ${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam -O ${HOM}/gvcf/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.g.vcf.gz -ERC GVCF
 check_command "GATK"
