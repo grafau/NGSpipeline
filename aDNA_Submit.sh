@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Common path and output directory
-BASE=/data/users_area/yky10kg/GREENrice/Cons_Gen/pipeline_testing/aDNA4
-FASTQ_DIR=/data/users_area/yky10kg/GREENrice/Cons_Gen/pipeline_testing/aDNA/fastq
-mkdir -p $BASE/{fastqc,trim,mapping,mapped,unmapped,QC,aDNA_authentication,gvcf,vcf}
+BASE=~/projects/rbgk/projects/greenrice/read_processing/historical/embryo
+FASTQ_DIR=~/projects/rbgk/projects/greenrice/raw_fastq/embryo/unifIDlinks
+mkdir -p $BASE/{log,err,fastqc,trim,mapping,mapped,unmapped,QC,aDNA_authentication,gvcf,vcf}
 
 # Calculate the array size (For PART1&2)
 ARRAY_SIZE=$(ls $FASTQ_DIR/*_1.fastq.gz | wc -l)
@@ -19,31 +19,42 @@ PART1_JOB_ID=$(sbatch $BASE/Array_aDNA_part1.sh | awk '{print $4}')
 PART2_JOB_ID=$(sbatch --dependency=afterok:$PART1_JOB_ID $BASE/Array_aDNA_part2.sh | awk '{print $4}')
 
 # Create and submit PART3 wrapper job
-cat > Submit_aDNA_part3_wrapper.sh <<EOF
+WRAPPER=$BASE/Submit_aDNA_part3_wrapper.sh
+
+cat > "$WRAPPER" <<'EOF'
 #!/bin/bash
 #SBATCH -J Submit_aDNA_part3
-#SBATCH --dependency=afterok:${PART2_JOB_ID}
-#SBATCH -p all
+#SBATCH -p short
 #SBATCH --mem=1G
 #SBATCH -t 00:05:00
+#SBATCH --dependency=afterok:__PART2__
 
-BASE=/data/users_area/yky10kg/GREENrice/Cons_Gen/pipeline_testing/aDNA4
+BASE=__BASE__
 
 # UPDATED_SAMPLE(after merging) into new array size
-LINES=\$(wc -l < $BASE/updated_samples_list.txt)
+LINES=$(wc -l < "$BASE/updated_samples_list.txt")
+echo "UPDATED_ARRAY(merged) : $LINES" >> "$BASE/Slurm_Record.log"
 
 # Update script
-sed "s/ARRAY_SIZE/${LINES}/" $BASE/aDNA_part3.sh > $BASE/Array_aDNA_part3.sh
-chmod +x $BASE/Array_aDNA_part3.sh
+sed "s/ARRAY_SIZE/${LINES}/" "$BASE/aDNA_part3.sh" > "$BASE/Array_aDNA_part3.sh"
+chmod +x "$BASE/Array_aDNA_part3.sh"
 
 # Submit the job for Part3
-PART3_JOB_ID=$(sbatch --dependency=afterok:$PART3_WRAPPER_JOB_ID $BASE/Array_aDNA_part3.sh | awk '{print $4}')
+PART3_JOB_ID=$(sbatch "$BASE/Array_aDNA_part3.sh" | awk '{print $4}')
+echo "part3 JobID           : $PART3_JOB_ID" >> "$BASE/Slurm_Record.log" 
+echo "-------------------------------------------------" >> "$BASE/Slurm_Record.log" 
 EOF
 
 # Submit the wrapper job
-chmod +x $BASE/Submit_aDNA_part3_wrapper.sh
-PART3_WRAPPER_JOB_ID=$(sbatch --dependency=afterok:$PART2_JOB_ID $BASE/Submit_aDNA_part3_wrapper.sh | awk '{print $4}')
+sed -e "s#__PART2__#${PART2_JOB_ID}#" \
+    -e "s#__BASE__#${BASE}#"          \
+    "$WRAPPER" > "${WRAPPER}.tmp"
 
+mv "${WRAPPER}.tmp" "$WRAPPER"
+chmod +x "$WRAPPER"
+
+PART3_WRAPPER_JOB_ID=$(sbatch "$WRAPPER" | awk '{print $4}')
+echo "part3 wrapper JobID   : $PART3_WRAPPER_JOB_ID"
 
 # Job Log
 {
@@ -52,8 +63,6 @@ PART3_WRAPPER_JOB_ID=$(sbatch --dependency=afterok:$PART2_JOB_ID $BASE/Submit_aD
   echo "SLURM_JOB_ID          : $SLURM_JOB_ID"
   echo "part1 JobID           : $PART1_JOB_ID"
   echo "part2 JobID           : $PART2_JOB_ID"
-  echo "part3 wrapper         : $PART3_WRAPPER_JOB_ID"
-  echo "UPDATED_ARRAY(merged) : $ARRAY_SIZE"
-  echo "part3 JobID           : $PART3_JOB_ID"
-  echo "-------------------------------------------------"
+  echo "part3 wrapper JobID   : $PART3_WRAPPER_JOB_ID"
+
 } >> $BASE/Slurm_Record.log
