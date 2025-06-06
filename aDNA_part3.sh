@@ -38,7 +38,7 @@ check_command() {
 }
 
 # Deduplication of mapped reads - DEDUP
-dedup -i ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.bam -m -o ${HOM}/mapped/
+dedup -i ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.bam -m -o ${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sorted_rmdup.bam
 check_command "Dedup"											
 
 # Sorting and Indexing BAM files
