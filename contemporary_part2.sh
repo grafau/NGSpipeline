@@ -3,7 +3,7 @@
 #SBATCH --verbose
 #SBATCH --mem=32G
 #SBATCH -c 16
-#SBATCH -p long
+#SBATCH -p himem
 #SBATCH -J c_read_processing_part2
 #SBATCH -t 0-330:00:00
 #SBATCH -o log/c_read_processing_part2_%A_%a.log
