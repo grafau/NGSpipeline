@@ -48,11 +48,6 @@ samtools index ${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam
 check_command "Samtools index ${UPDATED_SAMPLE}"
 
 # QC
-## Mapped reads
-echo "SAMPLE=${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam" >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
-echo -e "\nMapped reads (samtools flagstat):" >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
-samtools flagstat ${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
-
 ## Read stats
 echo -e "\nRead stats (samtools stats):" >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
 samtools stats ${HOM}/mapped/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam | grep ^SN | cut -f 2- >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
