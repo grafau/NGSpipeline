@@ -55,21 +55,32 @@ process_run() {
     fastqc -t 16 ${HOM}/trim/${sample}${run}.collapsed.gz ${HOM}/trim/${sample}${run}.pair1.truncated.gz ${HOM}/trim/${sample}${run}.pair2.truncated.gz -o ${HOM}/fastqc
     check_command "FASTQC"
 
-    # Alignment and processing
+    # Mapping
     bwa aln -t 16 -l 1024 -f ${HOM}/mapping/${sample}${run}.collapsed.sai ${REF} ${HOM}/trim/${sample}${run}.collapsed.gz
     check_command "BWA aln ${sample}${run}"
 
     bwa samse -r $rg -f ${HOM}/mapping/${sample}${run}.RG.sam ${REF} ${HOM}/mapping/${sample}${run}.collapsed.sai ${HOM}/trim/${sample}${run}.collapsed.gz
     check_command "BWA samse ${sample}${run}"
 
-    samtools flagstat ${HOM}/mapping/${sample}${run}.RG.sam > ${HOM}/mapping/${sample}${run}.flagstats.log
+    # Sort SAM → BAM, index and flagstat
+    samtools sort -@ 16 -o ${HOM}/mapping/${sample}${run}.RG.sorted.bam \
+      ${HOM}/mapping/${sample}${run}.RG.sam
+    check_command "Samtools sort ${sample}${run}"
+
+    samtools index ${HOM}/mapping/${sample}${run}.RG.sorted.bam
+    check_command "Samtools index ${sample}${run}"
+
+    samtools flagstat ${HOM}/mapping/${sample}${run}.RG.sorted.bam \
+      > ${HOM}/mapping/${sample}${run}.RG.sorted.flagstat.txt
     check_command "Samtools flagstat ${sample}${run}"
 
-    samtools view -@ 16 -F 4 -Sbh -o ${HOM}/mapping/${sample}${run}.RG.mapped.bam ${HOM}/mapping/${sample}${run}.RG.sam
-    check_command "Samtools view ${sample}${run}"
+    # Extract mapped reads only
+    samtools view -@ 16 -F 4 -Sbh ${HOM}/mapping/${sample}${run}.RG.sorted.bam \
+      -o ${HOM}/mapping/${sample}${run}.RG.mapped.sorted.bam
+    check_command "Samtools view mapped ${sample}${run}"
 
-    samtools sort -@ 16 -o ${HOM}/mapping/${sample}${run}.RG.mapped.sorted.bam ${HOM}/mapping/${sample}${run}.RG.mapped.bam
-    check_command "Samtools sort ${sample}${run}"
+    samtools index ${HOM}/mapping/${sample}${run}.RG.mapped.sorted.bam
+    check_command "Samtools index mapped ${sample}${run}"
 
     # Create a completion flag
     echo "Processing for ${sample}${run} completed."
