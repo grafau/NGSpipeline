@@ -3,7 +3,7 @@
 # Common path and output directory
 BASE=~/projects/rbgk/users_area/ykyungle/GREENrice/contemporary_test
 FASTQ_DIR=~/projects/rbgk/users_area/ykyungle/GREENrice/contemporary_test/fastq
-mkdir -p $BASE/{log,err,fastqc,trim,mapping,mapped,unmapped,QC,gvcf,vcf}
+mkdir -p $BASE/{log,err,fastqc,trim,mapping,deduplicated,QC,gvcf}
 
 # Calculate the array size (For PART1&2)
 ARRAY_SIZE=$(ls $FASTQ_DIR/*_1.fastq.gz | wc -l)
