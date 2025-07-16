@@ -3,7 +3,7 @@
 # Common path and output directory
 BASE=~/projects/rbgk/projects/greenrice/read_processing/historical/embryo
 FASTQ_DIR=~/projects/rbgk/projects/greenrice/raw_fastq/embryo/unifIDlinks
-mkdir -p $BASE/{log,err,fastqc,trim,mapping,mapped,unmapped,QC,aDNA_authentication,gvcf,vcf}
+mkdir -p $BASE/{log,err,fastqc,trim,mapping,deduplicated,QC,aDNA_authentication,gvcf}
 
 # Calculate the array size (For PART1&2)
 ARRAY_SIZE=$(ls $FASTQ_DIR/*_1.fastq.gz | wc -l)
