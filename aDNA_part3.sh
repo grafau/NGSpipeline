@@ -38,30 +38,30 @@ check_command() {
 }
 
 # Deduplication of mapped reads - DEDUP
-dedup -i ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.bam -m -o ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted_rmdup.bam
+dedup -i ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.bam -m -o ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.bam
 check_command "Dedup"											
 
 # Sorting and Indexing BAM files
-samtools sort -@ 16 -o ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted_rmdup.bam
+samtools sort -@ 16 -o ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.sorted.bam ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.bam
 check_command "Sorting Samtools sort"
-samtools index ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam
+samtools index ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.sorted.bam
 check_command "Indexing Samtools index"
 
 # aDNA Authentication - AMBER
-echo -e ${UPDATED_SAMPLE}'\t'${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam > ${HOM}/aDNA_authentication/${UPDATED_SAMPLE}.tsv
+echo -e ${UPDATED_SAMPLE}'\t'${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.sorted.bam > ${HOM}/aDNA_authentication/${UPDATED_SAMPLE}.tsv
 ${BIN}/AMBER/AMBER --bamfiles ${HOM}/aDNA_authentication/${UPDATED_SAMPLE}.tsv --output ${HOM}/aDNA_authentication/${UPDATED_SAMPLE} --errorbars --counts
 check_command "AMBER"
 
 # QC
 ## Mapped reads
-echo "SAMPLE=${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam" >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
+echo "SAMPLE=${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.sorted.bam" >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
 echo -e "\nMapped reads (samtools flagstat):" >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
-samtools flagstat ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
+samtools flagstat ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.sorted.bam >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
 
 ## Read stats
 echo -e "\nRead stats (samtools stats):" >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
-samtools stats ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam | grep ^SN | cut -f 2- >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
+samtools stats ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.sorted.bam | grep ^SN | cut -f 2- >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
 
 # Haplotype calling - GATK
-gatk --java-options -Xmx32G HaplotypeCaller -R ${REF} -I ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam -O ${HOM}/gvcf/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.g.vcf.gz -ERC GVCF
+gatk --java-options -Xmx32G HaplotypeCaller -R ${REF} -I ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.sorted.bam -O ${HOM}/gvcf/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.sorted.g.vcf.gz -ERC GVCF
 check_command "GATK"
