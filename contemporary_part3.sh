@@ -38,20 +38,25 @@ check_command() {
 }
 
 # Deduplication of mapped reads - Picard
-java -Xmx16G -jar ${BIN}/picard.jar MarkDuplicates I=${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.bam O=${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted_rmdup.bam M=${HOM}/deduplicated/${UPDATED_SAMPLE}_MarkDup.metrics.txt REMOVE_DUPLICATES=true
+java -Xmx16G -jar ${BIN}/picard.jar MarkDuplicates I=${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.bam O=${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.bam M=${HOM}/deduplicated/${UPDATED_SAMPLE}_MarkDup.metrics.txt REMOVE_DUPLICATES=true
 check_command "Picard-rmdup ${UPDATED_SAMPLE}"
 
 # Sorting and Indexing BAM files
-samtools sort -@ 16 ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted_rmdup.bam > ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam
+samtools sort -@ 16 -o ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.sorted.bam ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.bam
 check_command "Samtools sort ${UPDATED_SAMPLE}"
-samtools index ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam
+samtools index ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.sorted.bam
 check_command "Samtools index ${UPDATED_SAMPLE}"
 
 # QC
+## Mapped reads
+echo "SAMPLE=${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.sorted.bam" >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
+echo -e "\nMapped reads (samtools flagstat):" >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
+samtools flagstat ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.sorted.bam >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
+
 ## Read stats
 echo -e "\nRead stats (samtools stats):" >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
-samtools stats ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam | grep ^SN | cut -f 2- >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
+samtools stats ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.sorted.bam | grep ^SN | cut -f 2- >> ${HOM}/QC/quality_check_${UPDATED_SAMPLE}.txt
 
 # Haplotype calling - GATK
-gatk --java-options -Xmx32G HaplotypeCaller -R ${REF} -I ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.bam -O ${HOM}/gvcf/${UPDATED_SAMPLE}.RG.mapped.sort.rmdup.g.vcf.gz -ERC GVCF
+gatk --java-options -Xmx32G HaplotypeCaller -R ${REF} -I ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.sorted.bam -O ${HOM}/gvcf/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.sorted.g.vcf.gz -ERC GVCF
 check_command "GATK"
