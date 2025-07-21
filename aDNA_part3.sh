@@ -42,7 +42,7 @@ dedup -i ${HOM}/mapping/${UPDATED_SAMPLE}.RG.mapped.sorted.bam -m -o ${HOM}/dedu
 check_command "Dedup"											
 
 # Sorting and Indexing BAM files
-samtools sort -@ 16 -o ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.sorted.bam ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.bam
+samtools sort -@ 16 -o ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.sorted.bam ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted_rmdup.bam
 check_command "Sorting Samtools sort"
 samtools index ${HOM}/deduplicated/${UPDATED_SAMPLE}.RG.mapped.sorted.rmdup.sorted.bam
 check_command "Indexing Samtools index"
