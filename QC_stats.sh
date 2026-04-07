@@ -61,7 +61,7 @@ echo "  - Flagstat done: ${ID}.flagstats.log"
 
 # 5) Usable coverage (DEDUP reads)
 # Matches the input naming convention automatically
-DEDUP="${DEDUP_DIR}/${ID}.RG.mapped.sorted_rmdup.bam"
+DEDUP="${DEDUP_DIR}/${ID}.RG.mapped.sorted.rmdup.bam"
 
 if [ -f "$DEDUP" ]; then
   samtools coverage "$DEDUP" \
