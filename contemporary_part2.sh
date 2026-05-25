@@ -52,7 +52,8 @@ detect_runs() {
         [[ -n "$run" ]] && runs+=("$run")
     done
 
-    printf '%s ' "${runs[@]}"
+    # Remove duplicated list of forward & reverse fastq.gz files
+    echo "${runs[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '
 }
 
 # Merge BAM files for multiple run samples
